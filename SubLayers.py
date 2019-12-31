@@ -1,17 +1,8 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[7]:
-
-
 import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-
-
-# In[8]:
 
 
 class Multi_Head_Attention(nn.Module):
@@ -76,9 +67,6 @@ class Multi_Head_Attention(nn.Module):
         return output
 
 
-# In[9]:
-
-
 class Scaled_Dot_Product_Attention(nn.Module):
     '''
     Args
@@ -120,9 +108,6 @@ class Scaled_Dot_Product_Attention(nn.Module):
         output = torch.matmul(Att_softmax,value)
         
         return output
-
-
-# In[10]:
 
 
 class Position_Wise_FFNN(nn.Module):

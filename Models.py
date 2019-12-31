@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[22]:
-
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -12,9 +6,6 @@ import torch.optim as optim
 from torch.autograd import Variable
 import import_ipynb
 from SubLayers import Multi_Head_Attention, Scaled_Dot_Product_Attention, Position_Wise_FFNN
-
-
-# In[23]:
 
 
 ''' word / pad mask '''
@@ -31,9 +22,6 @@ def make_std_mask(trg, pad):
     trg_mask = get_pad_mask(trg,pad)
     trg_mask = trg_mask & Variable(subsequent_mask(trg.size(-1)).type_as(trg_mask.data))
     return trg_mask
-
-
-# In[24]:
 
 
 class Positional_Encoding(nn.Module):
@@ -58,9 +46,6 @@ class Positional_Encoding(nn.Module):
         return self.dropout(x)#.detach()
 
 
-# In[25]:
-
-
 class Encoder(nn.Module):
     def __init__(self, d_model, head_num, fc_dim):
         super(Encoder,self).__init__()
@@ -72,9 +57,6 @@ class Encoder(nn.Module):
         x = self.multi_head_attention(x,x,x,mask=mask)
         output = self.position_wise_ffnn(x)
         return output
-
-
-# In[26]:
 
 
 class Decoder(nn.Module):
@@ -90,9 +72,6 @@ class Decoder(nn.Module):
         output = self.position_wise_ffnn(x)
         
         return output
-
-
-# In[27]:
 
 
 class Stacked_Encoder(nn.Module):
@@ -124,9 +103,6 @@ class Stacked_Encoder(nn.Module):
         return output
 
 
-# In[28]:
-
-
 class Stacked_Decoder(nn.Module):
     def __init__(self,n_layers,d_model, head_num, fc_dim, num_trg_vocab, pad_idx, seq_len ,dropout=0.1 ):
         super(Stacked_Decoder,self).__init__()
@@ -145,9 +121,6 @@ class Stacked_Decoder(nn.Module):
 
         #output = self.layer_norm(output)
         return output
-
-
-# In[29]:
 
 
 class Transformer(nn.Module):

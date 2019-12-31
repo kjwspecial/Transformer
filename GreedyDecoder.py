@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[1]:
-
-
 import argparse
 import time
 import os
@@ -17,9 +11,6 @@ from torchtext import data, datasets
 from Models import Transformer, get_pad_mask, subsequent_mask, make_std_mask
 from train import calc_loss,eval_epoch
 from test import data_loader, load_model
-
-
-# In[126]:
 
 
 def Greedy_Decoder(transformer, src_seq, src_mask ,max_len, start_symbol, end_symbol, trg_pad_idx, device):
@@ -37,9 +28,6 @@ def Greedy_Decoder(transformer, src_seq, src_mask ,max_len, start_symbol, end_sy
         if next_word == end_symbol:
             break
     return decoder_input
-
-
-# In[ ]:
 
 
 def main():
@@ -104,9 +92,6 @@ def main():
         if number == args.n_gen_sentence:
             break
             
-
-
-# In[ ]:
 
 
 if __name__ == '__main__':

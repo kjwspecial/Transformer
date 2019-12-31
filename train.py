@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[3]:
-
-
 import argparse
 import math, copy, time
 import os
@@ -23,17 +17,11 @@ from apex import amp
 #https://on-demand.gputechconf.com/ai-conference-2019/T1-1_Jack%20Han_Getting%20More%20DL%20Training%20with%20Tensor%20Cores%20and%20AMP_%ED%95%9C%EC%9E%AC%EA%B7%BC_%EB%B0%9C%ED%91%9C%EC%9A%A9.pdf
 
 
-# In[ ]:
-
-
 def re_batch(src, trg):
     src = src.transpose(0,1)
     trg = trg.transpose(0,1)
     trg, gold = trg[:, :-1], trg[:, 1:].contiguous().view(-1)
     return src, trg, gold
-
-
-# In[ ]:
 
 
 def calc_loss(pred, gold, trg_pad_idx):
@@ -48,9 +36,6 @@ def calc_loss(pred, gold, trg_pad_idx):
     n_word_correct = pred.eq(gold).masked_select(non_pad_mask).sum().item()
     n_word = non_pad_mask.sum().item()
     return loss, n_word, n_word_correct
-
-
-# In[ ]:
 
 
 def train_epoch(model, data_loader,optimizer,device,args):
@@ -79,9 +64,6 @@ def train_epoch(model, data_loader,optimizer,device,args):
     return accuracy , loss_per_word
 
 
-# In[ ]:
-
-
 def eval_epoch(model, data_loader,device,args):
     model.eval()
     total_loss, n_word_total, n_word_correct = 0,0,0
@@ -104,9 +86,6 @@ def eval_epoch(model, data_loader,device,args):
     return accuracy , loss_per_word
 
 
-# In[ ]:
-
-
 def train(model, train_iter, val_iter, optimizer, device, args):
     
     val_loss =[]
@@ -127,9 +106,6 @@ def train(model, train_iter, val_iter, optimizer, device, args):
         if loss_per_word <= min(val_loss):
             torch.save(checkpoint, './transformer_model.ckpt')
             print("- checkpoint update  ")
-
-
-# In[4]:
 
 
 def data_loader(args, device):
@@ -197,9 +173,6 @@ def data_loader(args, device):
     return train_iter, val_iter
 
 
-# In[13]:
-
-
 def main(): 
     parser = argparse.ArgumentParser()
     
@@ -240,9 +213,6 @@ def main():
     
     torch.save(transformer.state_dict(), './transformer_model.ckpt')
     print("./transformer_model.ckpt - Model saved.")
-
-
-# In[ ]:
 
 
 if __name__ == '__main__':

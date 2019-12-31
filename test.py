@@ -1,9 +1,3 @@
-#!/usr/bin/env python
-# coding: utf-8
-
-# In[5]:
-
-
 import argparse
 import time
 import os
@@ -18,9 +12,6 @@ from Models import Transformer
 from train import re_batch,calc_loss,eval_epoch
 
 
-# In[2]:
-
-
 def test(model, test_iter, device, args):
     epoch = args.epoch
     start = time.time()
@@ -28,9 +19,6 @@ def test(model, test_iter, device, args):
     val_acc, val_loss_per_word = eval_epoch(model, test_iter ,device,args)
     print('-  (  Test Data set : WMT14  ) ')
     print('Accuracy : {acc:3.3f}%, Loss_per_word : {per_word:3.3f}%, elapse : {elapse:3.3f} min'.format(acc=val_acc*100,per_word=val_loss_per_word ,elapse=(time.time()-start)/60))
-
-
-# In[3]:
 
 
 def data_loader(args, device):
@@ -77,9 +65,6 @@ def data_loader(args, device):
     return test_iter, SRC, TGT
 
 
-# In[4]:
-
-
 def load_model(new_args, device):
     checkpoint = torch.load(new_args.model)
     args = checkpoint['args']
@@ -97,9 +82,6 @@ def load_model(new_args, device):
 
     transformer.load_state_dict(checkpoint['model'])
     return transformer
-
-
-# In[17]:
 
 
 def main(): 
@@ -128,9 +110,6 @@ def main():
     transformer = load_model(args,device)
     
     test(transformer, test_iter, device, args)
-
-
-# In[ ]:
 
 
 if __name__ == '__main__':
