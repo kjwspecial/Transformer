@@ -77,10 +77,6 @@ class Stacked_Encoder(nn.Module):
     def __init__(self, n_layers, d_model, head_num, fc_dim , num_src_vocab, pad_idx, seq_len ,dropout=0.1):
         super(Stacked_Encoder,self).__init__()# init class 호출한것임.
         
-        ''' 
-            nn.Embedding(총 단어 개수, embed_dim, pad_idx)
-            call 할 때 seq넣어주면 되는듯.
-        '''
         self.src_word_embedding = nn.Embedding(num_src_vocab, d_model, padding_idx=pad_idx)
         self.positional_encoding = Positional_Encoding(d_model, seq_len)
         self.layer_stack = nn.ModuleList([
@@ -90,10 +86,6 @@ class Stacked_Encoder(nn.Module):
         
 #        self.layer_norm = nn.LayerNorm(d_model)
     def forward(self,SRC_seq, mask=None):
-        '''
-        ToDo. 
-            attention map를 위해 attention 반환 추가 
-        '''
         src_word_embed = self.dropout(self.positional_encoding(self.src_word_embedding(SRC_seq)))
         for each_layer in self.layer_stack:
             output = each_layer(src_word_embed, mask)
