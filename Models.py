@@ -67,7 +67,7 @@ class Decoder(nn.Module):
         
     def forward(self,x, encoder_output, self_attention_mask=None, decoder_mask=None):
         x = self.masked_multi_head_attention(x,x,x,decoder_mask)
-        x = self.multi_head_attention(x,encoder_output,encoder_output,self_attention_mask)   #여기서 왜 에러가 나는것이야
+        x = self.multi_head_attention(x,encoder_output,encoder_output,self_attention_mask)  
         output = self.position_wise_ffnn(x)
         
         return output
@@ -75,7 +75,7 @@ class Decoder(nn.Module):
 
 class Stacked_Encoder(nn.Module):
     def __init__(self, n_layers, d_model, head_num, fc_dim , num_src_vocab, pad_idx, seq_len ,dropout=0.1):
-        super(Stacked_Encoder,self).__init__()# init class 호출한것임.
+        super(Stacked_Encoder,self).__init__()
         
         self.src_word_embedding = nn.Embedding(num_src_vocab, d_model, padding_idx=pad_idx)
         self.positional_encoding = Positional_Encoding(d_model, seq_len)
