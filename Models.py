@@ -4,7 +4,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
-import import_ipynb
 from SubLayers import Multi_Head_Attention, Scaled_Dot_Product_Attention, Position_Wise_FFNN
 
 
