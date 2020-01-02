@@ -3,7 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-from .gelu import GELU
+from gelu import GELU
 
 
 class Multi_Head_Attention(nn.Module):
