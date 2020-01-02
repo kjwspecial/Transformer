@@ -3,6 +3,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+from .gelu import GELU
 
 
 class Multi_Head_Attention(nn.Module):
@@ -113,18 +114,19 @@ class Scaled_Dot_Product_Attention(nn.Module):
 class Position_Wise_FFNN(nn.Module):
     def __init__(self, d_model, hidden_out, dropout = 0.1):
         super(Position_Wise_FFNN,self).__init__()
-        self.FFNN = nn.Sequential(
-            nn.Linear(d_model,hidden_out),
-            nn.LeakyReLU(),
-            nn.Linear(hidden_out,d_model),
-            nn.Dropout(dropout)
-        )
-
+        self.fc1 = nn.Linear(d_model, hidden_out)
+        self.fc2 = nn.Linear(hidden_out, d_model)
+        self.dropout = nn.Dropout(dropout)
+        ''' used GELU instead of RELU'''
+        self.activation = GELU()
+        
         self.layer_norm = nn.LayerNorm(d_model)
             
     def forward(self, x):
         residual = x
-        x = self.FFNN(x)
+        
+        x = self.activation(self.fc1(x))
+        x = self.dropout(self.fc2(x))
         output = self.layer_norm(x + residual)
         
         return output
