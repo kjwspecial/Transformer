@@ -58,33 +58,6 @@ def calc_loss(pred, gold, trg_pad_idx):
 
 
 
-def calc_loss(pred, gold, trg_pad_idx):
-    gold = gold.contiguous().view(-1)
-    
-    '''Label Smoothing'''
-    eps = 0.1
-    n_class = pred.size(1)
-    
-    #target word one-hot
-    one_hot = torch.zeros_like(pred).scatter_(1,gold.view(-1,1),1)
-    smoothing_one_hot = one_hot * (1 - eps) + (1 - one_hot) * eps / (n_class - 1)
-    prob = F.log_softmax(pred, dim = 1)
-    non_pad_mask = gold.ne(trg_pad_idx)
-    loss = -(smoothing_one_hot * pred).sum(dim=1)
-    
-    
-    #loss = F.cross_entropy(pred, gold, ignore_index=trg_pad_idx, reduction='sum')# sum이 문제인가?
-    non_pad_mask = gold.ne(trg_pad_idx)
-    pred = pred.argmax(dim=1)
-    '''
-        1. pred.eq(gold) : equal check.
-        2. masked_select : True인 부분만 남겨, padding 부분 제외시킴.
-    '''   
-    n_word_correct = pred.eq(gold).masked_select(non_pad_mask).sum().item()
-    n_word = non_pad_mask.sum().item()
-    return loss, n_word, n_word_correct
-
-
 def train_epoch(model, data_loader,optimizer,device,args):
     model.train()
     total_loss, n_word_total, n_word_correct=0,0,0
