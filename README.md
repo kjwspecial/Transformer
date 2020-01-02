@@ -35,4 +35,5 @@ python GreedyDecoder.py
 
 # Reference
 https://papers.nips.cc/paper/7181-attention-is-all-you-need.pdf
+
 http://nlp.seas.harvard.edu/2018/04/03/attention.html
