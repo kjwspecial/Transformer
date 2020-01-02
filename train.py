@@ -26,7 +26,54 @@ def re_batch(src, trg):
 
 def calc_loss(pred, gold, trg_pad_idx):
     gold = gold.contiguous().view(-1)
-    loss = F.cross_entropy(pred, gold, ignore_index=trg_pad_idx, reduction='sum')# sum이 문제인가?
+    
+    '''label_smoothing'''
+    eps = 0.1
+    n_class = pred.size(1)
+    
+    #target word one-hot
+    one_hot = torch.zeros_like(pred).scatter_(1, gold.view(-1,1),1)
+    smoothing_one_hot = one_hot * (1 - eps) + (1- one_hot) * eps / (n_class-1)
+    prob = F.log_softmax(pred, dim = 1)
+    
+    '''
+        loss = - one_hot * prob 
+        => 정확하게 예측하면 target값이 크기 때문에 곱셈 결과에 의해 loss 낮아짐
+    '''
+    #각 단어별 loss
+    loss = -(smoothing_one_hot * prob).sum(dim=1)
+    
+    non_pad_mask = gold.ne(trg_pad_idx)
+    loss = loss.masked_select(non_pad_mask).sum()
+    
+    #loss = F.cross_entropy(pred, gold, ignore_index=trg_pad_idx, reduction='sum')
+    pred = pred.argmax(dim=1)
+    '''
+        1. pred.eq(gold) : equal check.
+        2. masked_select : True인 부분만 남겨, padding 부분 제외시킴.
+    '''   
+    n_word_correct = pred.eq(gold).masked_select(non_pad_mask).sum().item()
+    n_word = non_pad_mask.sum().item()
+    return loss, n_word, n_word_correct
+
+
+
+def calc_loss(pred, gold, trg_pad_idx):
+    gold = gold.contiguous().view(-1)
+    
+    '''Label Smoothing'''
+    eps = 0.1
+    n_class = pred.size(1)
+    
+    #target word one-hot
+    one_hot = torch.zeros_like(pred).scatter_(1,gold.view(-1,1),1)
+    smoothing_one_hot = one_hot * (1 - eps) + (1 - one_hot) * eps / (n_class - 1)
+    prob = F.log_softmax(pred, dim = 1)
+    non_pad_mask = gold.ne(trg_pad_idx)
+    loss = -(smoothing_one_hot * pred).sum(dim=1)
+    
+    
+    #loss = F.cross_entropy(pred, gold, ignore_index=trg_pad_idx, reduction='sum')# sum이 문제인가?
     non_pad_mask = gold.ne(trg_pad_idx)
     pred = pred.argmax(dim=1)
     '''
@@ -210,9 +257,6 @@ def main():
     optimizer = optim.Adam(transformer.parameters(), betas=(0.9, 0.98), eps=1e-09)
     transformer, optimizer = amp.initialize(transformer, optimizer, opt_level="O1")
     train(transformer, train_iter, val_iter, optimizer, device, args)
-    
-    torch.save(transformer.state_dict(), './transformer_model.ckpt')
-    print("./transformer_model.ckpt - Model saved.")
 
 
 if __name__ == '__main__':
