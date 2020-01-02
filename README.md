@@ -5,7 +5,6 @@ German -> English translation task.
 
 
 # ToDo
-* Label smoothing
 * Beam Search
 * Weight Sharing
 
