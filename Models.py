@@ -105,7 +105,7 @@ class Stacked_Decoder(nn.Module):
     def forward(self, TRG_seq, encoder_output, self_attention_mask=None, decoder_mask=None):
         decoder_output = self.dropout(self.positional_encoding(self.trg_word_embedding(TRG_seq)))
         for each_layer in self.layer_stack:
-            decoder_output = each_layer(decoder_outputdecoder_output,encoder_output ,self_attention_mask, decoder_mask)
+            decoder_output = each_layer(decoder_output,encoder_output ,self_attention_mask, decoder_mask)
 
         #output = self.layer_norm(output)
         return decoder_output
