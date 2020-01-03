@@ -14,6 +14,7 @@ from torchtext import data, datasets
 
 from Models import Transformer
 from apex import amp
+from apex.parallel import DistributedDataParallel as DDP
 #https://on-demand.gputechconf.com/ai-conference-2019/T1-1_Jack%20Han_Getting%20More%20DL%20Training%20with%20Tensor%20Cores%20and%20AMP_%ED%95%9C%EC%9E%AC%EA%B7%BC_%EB%B0%9C%ED%91%9C%EC%9A%A9.pdf
 
 
@@ -72,7 +73,7 @@ def train_epoch(model, data_loader,optimizer,device,args):
         loss, n_word, n_correct = calc_loss(pred, gold, args.trg_pad_idx)
         with amp.scale_loss(loss, optimizer) as scaled_loss:
             scaled_loss.backward()
-            
+#        loss.backward()    
         optimizer.step()
         
         n_word_total += n_word
@@ -121,10 +122,10 @@ def train(model, train_iter, val_iter, optimizer, device, args):
                   'args': args, 
                   'model': model.state_dict()
                  }
-        acc, loss_per_word = train_epoch(model, train_iter,optimizer,device,args)
+        acc, loss = train_epoch(model, train_iter,optimizer,device,args)
         print_status(e,acc,loss,start)
  
-        val_acc, val_loss_per_word = eval_epoch(model, val_iter ,device,args)
+        val_acc, val_loss = eval_epoch(model, val_iter ,device,args)
         print_status(e,acc,loss,start)       
  
         val_loss +=[loss_per_word]
@@ -233,7 +234,9 @@ def main():
 
     transformer = transformer.to(device)
     optimizer = optim.Adam(transformer.parameters(), betas=(0.9, 0.98), eps=1e-09)
+#    transformer = nn.DataParallel(transformer)
     transformer, optimizer = amp.initialize(transformer, optimizer, opt_level="O1")
+#    transformer = DDP(transformer)
     train(transformer, train_iter, val_iter, optimizer, device, args)
 
 
