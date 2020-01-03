@@ -114,7 +114,7 @@ def print_status(epoch,loss, acc, start_time):
 
 def train(model, train_iter, val_iter, optimizer, device, args):
     
-    val_loss =[]
+    val_losses =[]
     for e in range(args.epoch):
         start = time.time()
         checkpoint = {
@@ -128,8 +128,8 @@ def train(model, train_iter, val_iter, optimizer, device, args):
         val_acc, val_loss = eval_epoch(model, val_iter ,device,args)
         print_status(e,acc,loss,start)       
  
-        val_loss +=[loss]
-        if loss <= min(val_loss):
+        val_losses += [val_loss]
+        if val_loss <= min(val_losses):
             torch.save(checkpoint, './transformer_model.ckpt')
             print("- checkpoint update  ")
 
