@@ -45,7 +45,6 @@ def calc_loss(pred, gold, trg_pad_idx):
     
     non_pad_mask = gold.ne(trg_pad_idx)
     loss = loss.masked_select(non_pad_mask).sum()
-    
     #loss = F.cross_entropy(pred, gold, ignore_index=trg_pad_idx, reduction='sum')
     pred = pred.argmax(dim=1)
     '''
@@ -55,7 +54,6 @@ def calc_loss(pred, gold, trg_pad_idx):
     n_word_correct = pred.eq(gold).masked_select(non_pad_mask).sum().item()
     n_word = non_pad_mask.sum().item()
     return loss, n_word, n_word_correct
-
 
 
 def train_epoch(model, data_loader,optimizer,device,args):
@@ -68,6 +66,9 @@ def train_epoch(model, data_loader,optimizer,device,args):
         optimizer.zero_grad()    
         
         pred = model(src_seq, trg_seq)
+        #if loss : nan => zero division error
+        eps= 1e-8
+        pred = pred + eps
         loss, n_word, n_correct = calc_loss(pred, gold, args.trg_pad_idx)
         with amp.scale_loss(loss, optimizer) as scaled_loss:
             scaled_loss.backward()
@@ -105,6 +106,10 @@ def eval_epoch(model, data_loader,device,args):
     
     return accuracy , loss_per_word
 
+def print_status(epoch,loss, acc, start_time):
+    print('epoch : {e:3d}, accuracy : {acc:3.3f}%, '\
+          'loss: {loss:3.3f}, elapes : {time:3.3f}min'.format(
+            e = e+1, acc = acc*100, loss = loss, time = (time.time()-start)/60))
 
 def train(model, train_iter, val_iter, optimizer, device, args):
     
@@ -117,11 +122,11 @@ def train(model, train_iter, val_iter, optimizer, device, args):
                   'model': model.state_dict()
                  }
         acc, loss_per_word = train_epoch(model, train_iter,optimizer,device,args)
-        print('epoch : {e:3d}, accuracy : {acc:3.3f}%, elapse : {elapse:3.3f} min'.format(e=e+1,acc=acc*100, elapse=(time.time()-start)/60))
-        
+        print_status(e,acc,loss,start)
+ 
         val_acc, val_loss_per_word = eval_epoch(model, val_iter ,device,args)
-        print('accuracy : {acc:3.3f}%, elapse : {elapse:3.3f} min , loss_per_word : {per_word:3.3f}%'.format(acc=val_acc*100, elapse=(time.time()-start)/60, per_word=val_loss_per_word))
-        
+        print_status(e,acc,loss,start)       
+ 
         val_loss +=[loss_per_word]
         if loss_per_word <= min(val_loss):
             torch.save(checkpoint, './transformer_model.ckpt')

@@ -67,7 +67,7 @@ class Decoder(nn.Module):
         
     def forward(self,x, encoder_output, self_attention_mask=None, decoder_mask=None):
         x = self.masked_multi_head_attention(x,x,x,decoder_mask)
-        x = self.multi_head_attention(x,encoder_output,encoder_output,self_attention_mask)  
+        x = self.multi_head_attention(x,encoder_output,encoder_output,self_attention_mask
         output = self.position_wise_ffnn(x)
         
         return output
@@ -75,7 +75,7 @@ class Decoder(nn.Module):
 
 class Stacked_Encoder(nn.Module):
     def __init__(self, n_layers, d_model, head_num, fc_dim , num_src_vocab, pad_idx, seq_len ,dropout=0.1):
-        super(Stacked_Encoder,self).__init__()
+        super(Stacked_Encoder,self).__init__()# init class 호출한것임.
         
         self.src_word_embedding = nn.Embedding(num_src_vocab, d_model, padding_idx=pad_idx)
         self.positional_encoding = Positional_Encoding(d_model, seq_len)
@@ -86,9 +86,9 @@ class Stacked_Encoder(nn.Module):
         
 #        self.layer_norm = nn.LayerNorm(d_model)
     def forward(self,SRC_seq, mask=None):
-        src_word_embed = self.dropout(self.positional_encoding(self.src_word_embedding(SRC_seq)))
+        encoder_output = self.dropout(self.positional_encoding(self.src_word_embedding(SRC_seq)))
         for each_layer in self.layer_stack:
-            output = each_layer(src_word_embed, mask)
+            encoder_output = each_layer(encoder_output, mask)
             
         #output = self.layer_norm(output)
         return output
@@ -106,16 +106,15 @@ class Stacked_Decoder(nn.Module):
         self.dropout = nn.Dropout(dropout)
         self.layer_norm = nn.LayerNorm(d_model)
     def forward(self, TRG_seq, encoder_output, self_attention_mask=None, decoder_mask=None):
-        trg_word_embed = self.dropout(self.positional_encoding(self.trg_word_embedding(TRG_seq)))
+        decoder_output = self.dropout(self.positional_encoding(self.trg_word_embedding(TRG_seq)))
         for each_layer in self.layer_stack:
-            output = each_layer(trg_word_embed,encoder_output ,self_attention_mask, decoder_mask)
+            decoder_output = each_layer(decoder_outputdecoder_output,encoder_output ,self_attention_mask, decoder_mask)
 
         #output = self.layer_norm(output)
         return output
 
-
 class Transformer(nn.Module):
-    '''
+     '''
     note.
         Shared Embeddings:When using BPE(토큰 단위로 나누는 방법) with shared vocabulary we can share the same weight vectors between the source / target / generator.
         See the (https://arxiv.org/abs/1608.05859) for details.
@@ -155,12 +154,10 @@ class Transformer(nn.Module):
         trg_mask = make_std_mask(trg_seq,self.trg_pad_idx)
 
         encoder_output = self.encoder(src_seq, src_mask)
-        decoder_output = self.decoder(trg_seq, encoder_output,src_mask ,trg_mask)# 마스크 순서바꿈
-
+        decoder_output = self.decoder(trg_seq, encoder_output,src_mask ,trg_mask)
         seq_logit = self.generator(decoder_output) * self.x_logit_scale
         '''
          [batch * seq_len, num_trg_vocab]
          => 각 단어에 대한 확률.
          '''
         return seq_logit.view(-1, seq_logit.size(2))
-
