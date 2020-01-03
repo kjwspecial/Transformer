@@ -110,7 +110,7 @@ def eval_epoch(model, data_loader,device,args):
 def print_status(epoch,loss, acc, start_time):
     print('epoch : {e:3d}, accuracy : {acc:3.3f}%, '\
           'loss: {loss:3.3f}, elapes : {time:3.3f}min'.format(
-            e = epoch+1, acc = acc*100, loss = loss, time = (time.time()-start)/60))
+            e = epoch+1, acc = acc*100, loss = loss, time = (time.time()-start_time)/60))
 
 def train(model, train_iter, val_iter, optimizer, device, args):
     
@@ -128,8 +128,8 @@ def train(model, train_iter, val_iter, optimizer, device, args):
         val_acc, val_loss = eval_epoch(model, val_iter ,device,args)
         print_status(e,acc,loss,start)       
  
-        val_loss +=[loss_per_word]
-        if loss_per_word <= min(val_loss):
+        val_loss +=[loss]
+        if loss <= min(val_loss):
             torch.save(checkpoint, './transformer_model.ckpt')
             print("- checkpoint update  ")
 
