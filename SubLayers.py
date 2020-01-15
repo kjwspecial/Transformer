@@ -55,10 +55,8 @@ class Multi_Head_Attention(nn.Module):
         v_w = self.Wv(V).view(batch_size, -1, self.head_num,self.dk).transpose(1,2)
         ''' masks => [1,1,1,seq_len] : seq_k에 적용 되는 마스크.'''
         if mask is not None:
-            mask = mask.unsqueeze(1)
-            #mask = mask.unsqueeze(1).repeat(1, n_heads, 1, 1) # attn_mask : [batch_size x n_heads x len_q x len_k]
-        
-               
+            mask = mask.unsqueeze(1)# attn_mask : [batch_size x n_heads x len_q x len_k]
+
         att = self.scaled_dot_product_attention(q_w,k_w,v_w,self.dk,mask=mask) 
         att = att.transpose(1,2).contiguous().view(batch_size,-1,self.head_num * self.dk)
         
@@ -102,12 +100,9 @@ class Scaled_Dot_Product_Attention(nn.Module):
                     [0.4716, 0.6443, -inf,   -inf],
         '''
         if mask is not None:
-            Attention_score = Attention_score.masked_fill(mask==0, float("-Inf"))#-1e9)
-
+            Attention_score = Attention_score.masked_fill(mask==0, -1e9)#float("-Inf")
         Att_softmax = self.dropout(F.softmax(Attention_score, dim=-1))
-
         output = torch.matmul(Att_softmax,value)
-        
         return output
 
 
@@ -119,15 +114,20 @@ class Position_Wise_FFNN(nn.Module):
         self.dropout = nn.Dropout(dropout)
         ''' used GELU instead of RELU'''
         self.activation = GELU()
-        
         self.layer_norm = nn.LayerNorm(d_model)
             
     def forward(self, x):
         residual = x
-        
         x = self.activation(self.fc1(x))
         x = self.dropout(self.fc2(x))
         output = self.layer_norm(x + residual)
         
         return output
 
+# class Sublayer_Connection(nn.Module):
+#     def __init__(self,d_model,dropout=0.1):
+#         super(Sublayer_Connection,self).__init__()
+#         self.layer_norm = nn.LayerNorm(d_model)
+#         self.dropout = nn.Dropout(dropout)
+#     def forward(self, x, sublayer):
+#         return self.dropout(sublayer(self.layer_norm(x))) + x

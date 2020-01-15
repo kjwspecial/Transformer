@@ -11,12 +11,11 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 from torchtext import data, datasets
-
+from Optim import ScheduledOptim
 from Models import Transformer
-from apex import amp
-from apex.parallel import DistributedDataParallel as DDP
+# from apex import amp
+# from apex.parallel import DistributedDataParallel as DDP
 #https://on-demand.gputechconf.com/ai-conference-2019/T1-1_Jack%20Han_Getting%20More%20DL%20Training%20with%20Tensor%20Cores%20and%20AMP_%ED%95%9C%EC%9E%AC%EA%B7%BC_%EB%B0%9C%ED%91%9C%EC%9A%A9.pdf
-
 
 def re_batch(src, trg):
     src = src.transpose(0,1)
@@ -25,28 +24,38 @@ def re_batch(src, trg):
     return src, trg, gold
 
 
-def calc_loss(pred, gold, trg_pad_idx):
+def LabelSmoothing(inputs,target,n_class,smoothing,pad_idx,criterion):
+    confidence = 1.0 - smoothing
+    true_dist= inputs.clone()
+    true_dist.fill_(smoothing/n_class)
+    '''
+        scatter_(dim, index, src)
+        self[index[i][j][k]][j][k] = src[i][j][k]  # if dim == 0
+        self[i][index[i][j][k]][k] = src[i][j][k]  # if dim == 1
+        self[i][j][index[i][j][k]] = src[i][j][k]  # if dim == 2
+    '''
+    #scatter(dim,index와 true_dist 차원 같아야함,채울값)
+    true_dist.scatter_(1,target.unsqueeze(1),confidence)
+    #pad index가 정답인 경우
+    true_dist[:,pad_idx] = 0
+    mask = torch.nonzero(target.data == pad_idx)
+    if mask.dim()>0:
+        #0-dim의 mask index에다가 0.0으로 채우겠다
+        true_dist.index_fill_(0,mask.squeeze(),0.0)
+    return criterion(inputs, Variable(true_dist, requires_grad=False))
+
+def calc_loss(pred, gold, trg_pad_idx, smoothing=False):
     gold = gold.contiguous().view(-1)
     
-    '''label_smoothing'''
-    eps = 0.1
-    n_class = pred.size(1)
-    
-    #target word one-hot
-    one_hot = torch.zeros_like(pred).scatter_(1, gold.view(-1,1),1)
-    smoothing_one_hot = one_hot * (1 - eps) + (1- one_hot) * eps / (n_class-1)
-    prob = F.log_softmax(pred, dim = 1)
-    
-    '''
-        loss = - one_hot * prob 
-        => 정확하게 예측하면 target값이 크기 때문에 곱셈 결과에 의해 loss 낮아짐
-    '''
-    #각 단어별 loss
-    loss = -(smoothing_one_hot * prob).sum(dim=1)
-    
+#     '''label_smoothing'''
+    if smoothing:
+        eps = 0.1
+        n_class = pred.size(1)
+        criterion = nn.KLDivLoss(reduction='sum')
+        loss = LabelSmoothing(pred,gold,n_class,eps,trg_pad_idx,criterion)
+    else:
+        loss = F.cross_entropy(pred, gold, ignore_index=trg_pad_idx, reduction='sum')
     non_pad_mask = gold.ne(trg_pad_idx)
-    loss = loss.masked_select(non_pad_mask).sum()
-    #loss = F.cross_entropy(pred, gold, ignore_index=trg_pad_idx, reduction='sum')
     pred = pred.argmax(dim=1)
     '''
         1. pred.eq(gold) : equal check.
@@ -67,14 +76,10 @@ def train_epoch(model, data_loader,optimizer,device,args):
         optimizer.zero_grad()    
         
         pred = model(src_seq, trg_seq)
-        #if loss : nan => zero division error
-        eps= 1e-8
-        pred = pred + eps
-        loss, n_word, n_correct = calc_loss(pred, gold, args.trg_pad_idx)
-        with amp.scale_loss(loss, optimizer) as scaled_loss:
-            scaled_loss.backward()
-#        loss.backward()    
-        optimizer.step()
+        loss, n_word, n_correct = calc_loss(pred, gold, args.trg_pad_idx, args.smoothing)
+        
+        loss.backward()    
+        optimizer.step_and_update_lr()
         
         n_word_total += n_word
         n_word_correct += n_correct
@@ -110,10 +115,10 @@ def eval_epoch(model, data_loader,device,args):
 def print_status(epoch,loss, acc, start_time):
     print('epoch : {e:3d}, accuracy : {acc:3.3f}%, '\
           'loss: {loss:3.3f}, elapes : {time:3.3f}min'.format(
-            e = epoch+1, acc = acc*100, loss = loss, time = (time.time()-start_time)/60))
+            e = epoch+1, acc = acc*100, loss = math.exp(loss), time = (time.time()-start_time)/60))
+#perplexity = math.exp(loss)
 
 def train(model, train_iter, val_iter, optimizer, device, args):
-    
     val_losses =[]
     for e in range(args.epoch):
         start = time.time()
@@ -124,9 +129,9 @@ def train(model, train_iter, val_iter, optimizer, device, args):
                  }
         acc, loss = train_epoch(model, train_iter,optimizer,device,args)
         print_status(e,acc,loss,start)
- 
+
         val_acc, val_loss = eval_epoch(model, val_iter ,device,args)
-        print_status(e,acc,loss,start)       
+        print_status(e,val_acc,val_loss,start)       
  
         val_losses += [val_loss]
         if val_loss <= min(val_losses):
@@ -167,7 +172,7 @@ def data_loader(args, device):
         fields – A tuple containing the fields that will be used for data in each language.
     '''
 
-    train, test, val = datasets.IWSLT.splits(
+    train, test, val = datasets.Multi30k.splits(
         exts=('.de', '.en'), fields=(SRC, TGT), 
         filter_pred=lambda x: len(vars(x)['src']) <= MAX_LEN and 
             len(vars(x)['trg']) <= MAX_LEN)
@@ -193,9 +198,9 @@ def data_loader(args, device):
         =>  rm -rf .data/
         재다운로드 하면된다.
     '''
-    
-    train_iter = data.BucketIterator(train, batch_size=BATCH_SIZE,device = device, sort_key=lambda x: len(x.src)) #,shuffle=True,repeat=False)
-    val_iter = data.BucketIterator(val, batch_size=1,device = device, sort_key=lambda x: len(x.src)) #,repeat=False)
+
+    train_iter = data.BucketIterator(train, batch_size=BATCH_SIZE,device = device, sort_key=lambda x: len(x.src))
+    val_iter = data.BucketIterator(val, batch_size=BATCH_SIZE,device = device, sort_key=lambda x: len(x.src))
     return train_iter, val_iter
 
 
@@ -205,15 +210,14 @@ def main():
     #python train.py -epoch 10 -batch 128 ... 
     
     parser.add_argument('-epoch',type=int, default = 10)
-    parser.add_argument('-batch',type=int, default = 32)
+    parser.add_argument('-batch',type=int, default = 512)
     parser.add_argument('-d_model',type=int, default= 512)
     parser.add_argument('-n_layers',type=int, default = 6)
     parser.add_argument('-head_num',type = int, default= 8)
     parser.add_argument('-fc_dim',type=int, default=2048)
     parser.add_argument('-seq_len',type=int, default=200)
     parser.add_argument('-dropout',type=float, default=0.1)
-    parser.add_argument('-weight_sharing', action='store_true')
-    
+    parser.add_argument('-smoothing', default=False)
     args = parser.parse_args()
     
     args.weight_sharing = not args.weight_sharing
@@ -229,14 +233,13 @@ def main():
                               head_num = args.head_num,
                               fc_dim = args.fc_dim,
                               seq_len = args.seq_len,
-                              dropout=args.dropout)
+                              dropout=args.dropout).to(device)
     
+    optimizer = ScheduledOptim(
+        optim.Adam(transformer.parameters(), betas=(0.9, 0.98), eps=1e-09),
+        2.0, 512, 4000)
 
-    transformer = transformer.to(device)
-    optimizer = optim.Adam(transformer.parameters(), betas=(0.9, 0.98), eps=1e-09)
-#    transformer = nn.DataParallel(transformer)
-    transformer, optimizer = amp.initialize(transformer, optimizer, opt_level="O1")
-#    transformer = DDP(transformer)
+    transformer = nn.DataParallel(transformer)
     train(transformer, train_iter, val_iter, optimizer, device, args)
 
 

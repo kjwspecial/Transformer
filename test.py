@@ -10,7 +10,7 @@ from torchtext import data, datasets
 
 from Models import Transformer
 from train import re_batch,calc_loss,eval_epoch
-
+import torch.nn as nn
 
 def test(model, test_iter, device, args):
     epoch = args.epoch
@@ -79,8 +79,9 @@ def load_model(new_args, device):
                           fc_dim = args.fc_dim,
                           seq_len = args.seq_len,
                           dropout=args.dropout).to(device)
-
+    transformer = nn.DataParallel(transformer)
     transformer.load_state_dict(checkpoint['model'])
+    
     return transformer
 
 
@@ -88,7 +89,7 @@ def main():
     parser = argparse.ArgumentParser()
     
     parser.add_argument('-epoch',type=int, default = 10)
-    parser.add_argument('-batch',type=int, default = 32)
+    parser.add_argument('-batch',type=int, default = 512)
     parser.add_argument('-d_model',type=int, default= 512)
     parser.add_argument('-n_layers',type=int, default = 6)
     parser.add_argument('-head_num',type = int, default= 8)
@@ -96,7 +97,6 @@ def main():
     parser.add_argument('-seq_len',type=int, default=200)
     parser.add_argument('-dropout',type=float, default=0.1)
     parser.add_argument('-n_warmup_steps',type=int, default=4000)
-    parser.add_argument('-weight_sharing', action='store_true')
     parser.add_argument('-model', default = './transformer_model.ckpt')
     parser.add_argument('-src_vocab',default = './data/SRC_vocab_pkl')
     parser.add_argument('-trg_vocab',default = './data/TGT_vocab_pkl')

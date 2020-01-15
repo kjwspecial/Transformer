@@ -11,18 +11,19 @@ from torchtext import data, datasets
 from Models import Transformer, get_pad_mask, subsequent_mask, make_std_mask
 from train import calc_loss,eval_epoch
 from test import data_loader, load_model
-
+import torch.nn as nn
 
 def Greedy_Decoder(transformer, src_seq, src_mask ,max_len, start_symbol, end_symbol, trg_pad_idx, device):
-    encoder_output = transformer.encoder(src_seq,src_mask)
+    #nn.DataParallel => model.module. ...
+    encoder_output = transformer.module.encoder(src_seq,src_mask)
     decoder_input = torch.ones(1, 1).fill_(start_symbol).type_as(src_seq.data)
     #decoder_input = torch.ones(1,max_len).type_as(src_seq.data)
     #next_word = start_symbol
     for i in range(max_len-1):
         #decoder_input[0][i] = next_word
         trg_mask = make_std_mask(decoder_input, trg_pad_idx)
-        decoder_output = transformer.decoder(decoder_input, encoder_output, src_mask, trg_mask)
-        prob = transformer.generator(decoder_output[:,-1])
+        decoder_output = transformer.module.decoder(decoder_input, encoder_output, src_mask, trg_mask)
+        prob = transformer.module.generator(decoder_output[:,-1])
         next_word = torch.argmax(prob, dim = 1).data[0]
         decoder_input = torch.cat([decoder_input,torch.ones(1, 1).type_as(src_seq.data).fill_(next_word)], dim=1)
         if next_word == end_symbol:
@@ -55,8 +56,6 @@ def main():
     
     test_iter, SRC, TGT = data_loader(args,device)
     transformer = load_model(args,device)
-    checkpoint = torch.load('transformer_model.ckpt')
-    transformer.load_state_dict(checkpoint['model'])
     
     start_symbol = TGT.vocab.stoi['<s>']
     end_symbol = TGT.vocab.stoi['</s>']
@@ -92,7 +91,6 @@ def main():
         if number == args.n_gen_sentence:
             break
             
-
 
 if __name__ == '__main__':
     main()

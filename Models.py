@@ -5,7 +5,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 from torch.autograd import Variable
 from SubLayers import Multi_Head_Attention, Scaled_Dot_Product_Attention, Position_Wise_FFNN
-
+import copy
 
 ''' word / pad mask '''
 def get_pad_mask(seq, pad_idx):
@@ -22,6 +22,8 @@ def make_std_mask(trg, pad):
     trg_mask = trg_mask & Variable(subsequent_mask(trg.size(-1)).type_as(trg_mask.data))
     return trg_mask
 
+def clones(layers,n_layers):
+    return nn.ModuleList([copy.deepcopy(layers) for _ in range(n_layers)])
 
 class Positional_Encoding(nn.Module):
     def __init__(self,d_model, seq_len, dropout = 0.1):
@@ -64,9 +66,10 @@ class Decoder(nn.Module):
         self.multi_head_attention = Multi_Head_Attention(d_model, head_num)
         self.position_wise_ffnn = Position_Wise_FFNN(d_model,fc_dim)
         
-    def forward(self,x, encoder_output, self_attention_mask=None, decoder_mask=None):
-        x = self.masked_multi_head_attention(x,x,x,decoder_mask)
-        x = self.multi_head_attention(x,encoder_output,encoder_output,self_attention_mask)
+    def forward(self,decoder_input, encoder_output, self_attention_mask=None, decoder_mask=None):
+        decoder_output = self.masked_multi_head_attention(decoder_input,decoder_input,decoder_input,decoder_mask)
+        
+        x = self.multi_head_attention(decoder_output,encoder_output,encoder_output,self_attention_mask)
         output = self.position_wise_ffnn(x)
         
         return output
@@ -77,18 +80,14 @@ class Stacked_Encoder(nn.Module):
         super(Stacked_Encoder,self).__init__()        
         self.src_word_embedding = nn.Embedding(num_src_vocab, d_model, padding_idx=pad_idx)
         self.positional_encoding = Positional_Encoding(d_model, seq_len)
-        self.layer_stack = nn.ModuleList([
-            Encoder(d_model, head_num, fc_dim) for _ in range(n_layers)])
-        
+        self.layer_stack = clones(Encoder(d_model, head_num, fc_dim),n_layers)
         self.dropout= nn.Dropout()
         
-#        self.layer_norm = nn.LayerNorm(d_model)
     def forward(self,SRC_seq, mask=None):
         encoder_output = self.dropout(self.positional_encoding(self.src_word_embedding(SRC_seq)))
         for each_layer in self.layer_stack:
-            encoder_output = each_layer(encoder_output, mask)
-            
-        #output = self.layer_norm(output)
+            encoder_output = each_layer(encoder_output, mask)     
+
         return encoder_output
 
 
@@ -98,16 +97,14 @@ class Stacked_Decoder(nn.Module):
         
         self.trg_word_embedding = nn.Embedding(num_trg_vocab, d_model, padding_idx= pad_idx)
         self.positional_encoding = Positional_Encoding(d_model, seq_len)
-        self.layer_stack = nn.ModuleList([Decoder(d_model, head_num, fc_dim) for _ in range(n_layers)])
-        
+        self.layer_stack = clones(Decoder(d_model, head_num, fc_dim),n_layers)
+
         self.dropout = nn.Dropout(dropout)
-        self.layer_norm = nn.LayerNorm(d_model)
     def forward(self, TRG_seq, encoder_output, self_attention_mask=None, decoder_mask=None):
         decoder_output = self.dropout(self.positional_encoding(self.trg_word_embedding(TRG_seq)))
         for each_layer in self.layer_stack:
             decoder_output = each_layer(decoder_output,encoder_output ,self_attention_mask, decoder_mask)
-
-        #output = self.layer_norm(output)
+            
         return decoder_output
 
 
@@ -119,7 +116,6 @@ class Transformer(nn.Module):
         
         BPE : https://arxiv.org/pdf/1508.07909.pdf
         # or 구글 sentencepiece
-        
     '''
     def __init__(self, num_src_vocab, num_trg_vocab,src_pad_idx,trg_pad_idx, 
                  n_layers=6, d_model= 512, head_num =8 , fc_dim=2048,seq_len=200,dropout=0.1,
@@ -139,22 +135,14 @@ class Transformer(nn.Module):
             if param.dim() > 1:
                 nn.init.kaiming_uniform_(param)
         
-        ''' BPE 구현 후 적용 할 예정.'''
-        self.x_logit_scale = 1 
-        if weight_sharing:
-            # Share the weight between target word embedding & [last dense layer , source word embedding]
-            self.generator.weight = self.Stacked_Decoder.trg_word_embedding.weight
-            self.Stacked_Encoder.src_word_embedding.weight = self.Stacked_Decoder.trg_word_embedding.weight
-            self.x_logit_scale = (d_model ** -0.5)
-
     def forward(self, src_seq, trg_seq):
         src_mask = get_pad_mask(src_seq,self.src_pad_idx)
         trg_mask = make_std_mask(trg_seq,self.trg_pad_idx)
 
         encoder_output = self.encoder(src_seq, src_mask)
-        decoder_output = self.decoder(trg_seq, encoder_output,src_mask ,trg_mask)# 마스크 순서바꿈
+        decoder_output = self.decoder(trg_seq, encoder_output,src_mask ,trg_mask)
 
-        seq_logit = self.generator(decoder_output) * self.x_logit_scale
+        seq_logit = self.generator(decoder_output)
         '''
          [batch * seq_len, num_trg_vocab]
          => 각 단어에 대한 확률.

@@ -18,7 +18,7 @@ German -> English translation task.
 * numpy
 
 # Usage
-### 1) Train the model - Datset : IWSLT 
+### 1) Train the model - Datset : Multi30k
 ```bash
 python train.py -epoch 10 -batch 10 ...
 
