@@ -11,7 +11,6 @@ German -> English translation task.
 # Requirement
 * Python
 * Spacy
-* Apex  
 * torchtext
 * Pytorch
 * tqdm
